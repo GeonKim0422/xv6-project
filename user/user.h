@@ -47,3 +47,6 @@ void printf(const char*, ...) __attribute__ ((format (printf, 1, 2)));
 // umalloc.c
 void* malloc(uint);
 void free(void*);
+
+//system calls added in proejct 1
+int getnice(int);
