@@ -59,6 +59,7 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+uint64          meminfo(void);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -103,6 +104,8 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             getnice(int);
 int             setnice(int, int);
+void            ps(int);
+int             waitpid(int);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

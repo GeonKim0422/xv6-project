@@ -105,6 +105,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   
-  // these are for project 1
+  // implemented in project 1
   int nice;
 };

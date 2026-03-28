@@ -126,6 +126,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->nice = 20;
 
   // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
@@ -711,23 +712,23 @@ void procdump(void)
   }
 }
 
-// implemented in prject1
-int getnice(int pid)
+
+// implemented in project1
+int
+getnice(int pid)
 {
   struct proc *p;
 
-  for (p = proc; p < &proc[NPROC]; p++)
-  {
+  for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
-    if (p->pid == pid)
-    {
+    if(p->pid == pid){
       int val = p->nice;
       release(&p->lock);
-      return val; // 찾으면 nice 값 반환
+      return val;
     }
     release(&p->lock);
   }
-  return -1; // 해당 pid 없으면 -1
+  return -1;
 }
 
 int
@@ -735,18 +736,76 @@ setnice(int pid, int value)
 {
   struct proc *p;
 
-  // 범위 검사 먼저! (0~39만 유효)
   if(value < 0 || value > 39)
     return -1;
 
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->pid == pid){
-      p->nice = value;      // ← getnice는 읽었지만, setnice는 씀
+      p->nice = value;
       release(&p->lock);
-      return 0;             // 성공 시 0 반환 (getnice는 nice값 반환)
+      return 0;
     }
     release(&p->lock);
   }
-  return -1;                // pid 없으면 -1
+  return -1;
+}
+
+void
+ps(int pid)
+{
+  struct proc *p;
+  printf("name\t\tpid\tstate\t\tpriority\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }
+    if(pid != 0 && p->pid != pid){
+      release(&p->lock);
+      continue;
+    }
+    char *state;
+    if(p->state == SLEEPING)      state = "SLEEPING";
+    else if(p->state == RUNNABLE) state = "RUNNABLE";
+    else if(p->state == RUNNING)  state = "RUNNING";
+    else if(p->state == ZOMBIE)   state = "ZOMBIE";
+    else                          state = "UNKNOWN";
+    printf("%s\t\t%d\t%s\t\t%d\n", p->name, p->pid, state, p->nice);
+    release(&p->lock);
+  }
+}
+
+int
+waitpid(int pid)
+{
+  struct proc *p;
+  struct proc *myp = myproc();
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      if(p->parent != myp){
+        release(&p->lock);
+        return -1;
+      }
+      release(&p->lock);
+      // 프로세스 종료될때까지 대기
+      acquire(&myp->lock);
+      while(1){
+        acquire(&p->lock);
+        if(p->state == ZOMBIE || p->state == UNUSED){
+          release(&p->lock);
+          break;
+        }
+        release(&p->lock);
+        sleep(myp, &myp->lock);
+      }
+      release(&myp->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }
