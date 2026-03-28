@@ -107,6 +107,22 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+// implemented in project 1
+uint64
+sys_getnice(void)
+{
+  int pid;
+  argint(0, &pid);        // 첫 번째 인자(pid)를 레지스터에서 추출
+  return getnice(pid);    // kernel/proc.c의 실제 구현 호출
+}
+uint64
+sys_setnice(void)
+{
+  int pid, value;
+  argint(0, &pid);        // 첫 번째 인자: pid
+  argint(1, &value);      // 두 번째 인자: value  ← getnice와 다른 점!
+  return setnice(pid, value);
+}
 
 uint64
 sys_ps(void)
