@@ -124,6 +124,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->nice = 20;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -687,4 +688,63 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+void
+ps(int pid)
+{
+  struct proc *p;
+  printf("name\t\tpid\tstate\t\tpriority\n");
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->state == UNUSED){
+      release(&p->lock);
+      continue;
+    }
+    if(pid != 0 && p->pid != pid){
+      release(&p->lock);
+      continue;
+    }
+    char *state;
+    if(p->state == SLEEPING) state = "SLEEPING";
+    else if(p->state == RUNNABLE) state = "RUNNABLE";
+    else if(p->state == RUNNING) state = "RUNNING";
+    else if(p->state == ZOMBIE) state = "ZOMBIE";
+    else state = "UNKNOWN";
+    printf("%s\t\t%d\t%s\t\t%d\n", p->name, p->pid, state, p->nice);
+    release(&p->lock);
+  }
+}
+
+int
+waitpid(int pid)
+{
+  struct proc *p;
+  struct proc *myp = myproc();
+
+  for(p = proc; p < &proc[NPROC]; p++){
+    acquire(&p->lock);
+    if(p->pid == pid){
+      if(p->parent != myp){
+        release(&p->lock);
+        return -1;
+      }
+      release(&p->lock);
+      // 프로세스 종료될때까지 대기
+      acquire(&myp->lock);
+      while(1){
+        acquire(&p->lock);
+        if(p->state == ZOMBIE || p->state == UNUSED){
+          release(&p->lock);
+          break;
+        }
+        release(&p->lock);
+        sleep(myp, &myp->lock);
+      }
+      release(&myp->lock);
+      return 0;
+    }
+    release(&p->lock);
+  }
+  return -1;
 }

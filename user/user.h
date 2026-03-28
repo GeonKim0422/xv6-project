@@ -50,3 +50,7 @@ void free(void*);
 
 //system calls added in proejct 1
 int getnice(int);
+int setnice(int, int);
+void ps(int);
+uint64 meminfo(void);
+int waitpid(int);

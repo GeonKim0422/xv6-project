@@ -42,4 +42,8 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
-entry("getnice")
+entry("getnice");
+entry("setnice");
+entry("ps");
+entry("meminfo");
+entry("waitpid");
