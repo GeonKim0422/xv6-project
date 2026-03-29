@@ -713,7 +713,7 @@ void procdump(void)
 }
 
 
-// implemented in project1
+// implemented in project1, Claude AI was used
 int
 getnice(int pid)
 {

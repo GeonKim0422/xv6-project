@@ -101,7 +101,7 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_link(void);
 extern uint64 sys_mkdir(void);
 extern uint64 sys_close(void);
-// implemented in project 1 
+// implemented in project 1 , Claude AI was used
 extern uint64 sys_getnice(void);
 extern uint64 sys_setnice(void);
 extern uint64 sys_ps(void);
@@ -131,7 +131,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-// implemented in project 1
+// implemented in project 1, Claude AI was used
 [SYS_getnice]   sys_getnice,
 [SYS_setnice]   sys_setnice,
 [SYS_ps]        sys_ps,

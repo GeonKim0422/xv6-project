@@ -42,7 +42,7 @@ entry("getpid");
 entry("sbrk");
 entry("pause");
 entry("uptime");
-# implemented in project 1
+# implemented in project 1, Claude AI was used
 entry("getnice");
 entry("setnice");
 entry("ps");

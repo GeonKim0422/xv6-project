@@ -105,6 +105,6 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   
-  // implemented in project 1
+  // implemented in project 1, Claude AI was used
   int nice;
 };

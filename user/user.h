@@ -48,7 +48,7 @@ void printf(const char*, ...) __attribute__ ((format (printf, 1, 2)));
 void* malloc(uint);
 void free(void*);
 
-//system calls added in proejct 1
+//system calls added in proejct 1, Claude AI was used
 int getnice(int);
 int setnice(int, int);
 void ps(int);
