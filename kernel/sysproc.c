@@ -107,7 +107,7 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-// implemented in project 1
+// implemented in project 1, Claude AI was used
 uint64
 sys_getnice(void)
 {
