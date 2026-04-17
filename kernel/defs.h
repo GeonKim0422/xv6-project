@@ -106,6 +106,8 @@ int             getnice(int); //Claude AI was used
 int             setnice(int, int);
 void            ps(int);
 int             waitpid(int);
+// Claude AI was used and implemented in project2
+void            update_eevdf_tick(struct proc *);
 
 // swtch.S
 void            swtch(struct context*, struct context*);
