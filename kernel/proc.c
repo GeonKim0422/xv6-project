@@ -26,6 +26,19 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+// Claude AI was used and implemented in project2
+// Nice-to-weight mapping table (Linux-style, nice 0~39)
+static uint64 nice_to_weight[40] = {
+  88761, 71755, 56483, 46273, 36291,  // nice  0 ~  4
+  29154, 23254, 18705, 14949, 11916,  // nice  5 ~  9
+   9548,  7620,  6100,  4904,  3906,  // nice 10 ~ 14
+   3121,  2501,  1991,  1586,  1277,  // nice 15 ~ 19
+   1024,   820,   655,   526,   423,  // nice 20 ~ 24
+    335,   272,   215,   172,   137,  // nice 25 ~ 29
+    110,    87,    70,    56,    45,  // nice 30 ~ 34
+     36,    29,    23,    18,    15,  // nice 35 ~ 39
+};
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -151,6 +164,14 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
   p->nice = 20;
+
+  // Claude AI was used and implemented in project2: initialize EEVDF fields
+  p->runtime     = 0;
+  p->vruntime    = 0;
+  p->vdeadline   = 0;
+  p->timeslice   = 5;
+  p->is_eligible = 1;
+
   return p;
 }
 
@@ -302,6 +323,17 @@ int kfork(void)
 
   pid = np->pid;
 
+  // Claude AI was used and implemented in project2
+  // Fork: child inherits parent's nice and vruntime, but resets runtime/timeslice
+  np->nice        = p->nice;
+  np->vruntime    = p->vruntime;
+  np->runtime     = 0;
+  np->timeslice   = 5;
+  // recalculate vdeadline: vruntime + timeslice * 1024 / weight
+  uint64 w = nice_to_weight[np->nice];
+  np->vdeadline   = np->vruntime + (uint64)5 * 1024 / w;
+  np->is_eligible = 1;
+
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -438,6 +470,7 @@ int kwait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+// Claude AI was used and implemented in project2: replaced Round-Robin with EEVDF
 void scheduler(void)
 {
   struct proc *p;
@@ -446,37 +479,87 @@ void scheduler(void)
   c->proc = 0;
   for (;;)
   {
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
-    int found = 0;
-    for (p = proc; p < &proc[NPROC]; p++)
-    {
-      acquire(&p->lock);
-      if (p->state == RUNNABLE)
-      {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    // --- Step 1: Compute global virtual time (V) ---
+    // V = v0 + sum((vi - v0) * wi) / sum(wi)
+    // where v0 = min vruntime among RUNNABLE/RUNNING processes
+    uint64 v0 = (uint64)-1; // will hold min vruntime
+    uint64 sum_w = 0;
+    uint64 sum_vw = 0; // sum of (vi - v0) * wi  (computed after v0 is known)
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+    // First pass: find v0 and sum_w
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE || p->state == RUNNING) {
+        if (p->vruntime < v0)
+          v0 = p->vruntime;
+        sum_w += nice_to_weight[p->nice];
       }
       release(&p->lock);
     }
-    if (found == 0)
-    {
-      // nothing to run; stop running on this core until an interrupt.
+
+    // Second pass: compute sum_vw and update eligibility
+    if (sum_w > 0 && v0 != (uint64)-1) {
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE || p->state == RUNNING) {
+          sum_vw += (p->vruntime - v0) * nice_to_weight[p->nice];
+        }
+        release(&p->lock);
+      }
+      // Update eligibility: eligible if lag >= 0
+      // i.e., sum_vw >= (vi - v0) * sum_w
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE || p->state == RUNNING) {
+          uint64 lhs = sum_vw;
+          uint64 rhs = (p->vruntime - v0) * sum_w;
+          p->is_eligible = (lhs >= rhs) ? 1 : 0;
+        }
+        release(&p->lock);
+      }
+    }
+
+    // --- Step 2: Pick eligible process with earliest vdeadline ---
+    struct proc *chosen = 0;
+    uint64 earliest_vd = (uint64)-1;
+
+    for (p = proc; p < &proc[NPROC]; p++) {
+      acquire(&p->lock);
+      if (p->state == RUNNABLE && p->is_eligible) {
+        if (p->vdeadline < earliest_vd) {
+          earliest_vd = p->vdeadline;
+          chosen = p;
+        }
+      }
+      release(&p->lock);
+    }
+
+    // Fallback: if no eligible process, pick RUNNABLE with earliest vdeadline
+    if (chosen == 0) {
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          if (p->vdeadline < earliest_vd) {
+            earliest_vd = p->vdeadline;
+            chosen = p;
+          }
+        }
+        release(&p->lock);
+      }
+    }
+
+    // --- Step 3: Run chosen process ---
+    if (chosen != 0) {
+      acquire(&chosen->lock);
+      chosen->state = RUNNING;
+      c->proc = chosen;
+      swtch(&c->context, &chosen->context);
+      c->proc = 0;
+      release(&chosen->lock);
+    } else {
       asm volatile("wfi");
     }
   }
@@ -600,6 +683,13 @@ void wakeup(void *chan)
       if (p->state == SLEEPING && p->chan == chan)
       {
         p->state = RUNNABLE;
+
+        // Claude AI was used and implemented in project2
+        // On wakeup: reset timeslice, recalculate vdeadline and eligibility
+        p->timeslice = 5;
+        uint64 w = nice_to_weight[p->nice];
+        p->vdeadline = p->vruntime + (uint64)5 * 1024 / w;
+        p->is_eligible = 1;
       }
       release(&p->lock);
     }
@@ -743,6 +833,10 @@ setnice(int pid, int value)
     acquire(&p->lock);
     if(p->pid == pid){
       p->nice = value;
+      // Claude AI was used and implemented in project2
+      // When weight changes, recalculate vdeadline with new weight
+      uint64 w = nice_to_weight[value];
+      p->vdeadline = p->vruntime + (uint64)5 * 1024 / w;
       release(&p->lock);
       return 0;
     }
@@ -751,11 +845,14 @@ setnice(int pid, int value)
   return -1;
 }
 
+// Claude AI was used and implemented in project2
+// Modified ps() to print EEVDF scheduling fields in millitick units
 void
 ps(int pid)
 {
   struct proc *p;
-  printf("name\t\tpid\tstate\t\tpriority\n");
+  // header
+  printf("name\t\tpid\tstate\t\tprio\truntime/w\truntime\t\tvruntime\tvdeadline\teligible\ttick\n");
   for(p = proc; p < &proc[NPROC]; p++){
     acquire(&p->lock);
     if(p->state == UNUSED){
@@ -772,9 +869,51 @@ ps(int pid)
     else if(p->state == RUNNING)  state = "RUNNING";
     else if(p->state == ZOMBIE)   state = "ZOMBIE";
     else                          state = "UNKNOWN";
-    printf("%s\t\t%d\t%s\t\t%d\n", p->name, p->pid, state, p->nice);
+
+    uint64 w = nice_to_weight[p->nice];
+    // runtime/weight in milliticks: (runtime * 1024 * 1000) / weight
+    uint64 runtime_w = (p->runtime * 1024 * 1000) / (w > 0 ? w : 1);
+    uint64 runtime_ms  = p->runtime  * 1000;
+    uint64 vruntime_ms = p->vruntime * 1000;
+    uint64 vdeadline_ms = p->vdeadline * 1000;
+
+    printf("%s\t\t%d\t%s\t%d\t%lu\t\t%lu\t\t%lu\t\t%lu\t\t%d\t\t%lu\n",
+      p->name, p->pid, state, p->nice,
+      runtime_w, runtime_ms, vruntime_ms, vdeadline_ms,
+      p->is_eligible, p->runtime);
     release(&p->lock);
   }
+}
+
+// Claude AI was used and implemented in project2
+// Called every timer interrupt for the currently running process.
+// Updates runtime, vruntime, timeslice.
+// When timeslice exhausts, recalculates vdeadline and resets timeslice.
+void
+update_eevdf_tick(struct proc *p)
+{
+  // p is the current running process; called from usertrap with no lock held
+  acquire(&p->lock);
+
+  uint64 w = nice_to_weight[p->nice];
+
+  // increment actual runtime by 1 tick
+  p->runtime++;
+
+  // vruntime += 1 * 1024 / weight  (Δruntime = 1)
+  p->vruntime += 1024 / (w > 0 ? w : 1);
+
+  // decrement remaining timeslice
+  p->timeslice--;
+
+  if(p->timeslice <= 0){
+    // timeslice exhausted: recalculate vdeadline and reset
+    p->vdeadline  = p->vruntime + (uint64)5 * 1024 / (w > 0 ? w : 1);
+    p->timeslice  = 5;
+    p->is_eligible = 1; // will be properly re-evaluated in scheduler
+  }
+
+  release(&p->lock);
 }
 
 int

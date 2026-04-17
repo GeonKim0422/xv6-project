@@ -81,8 +81,12 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    // Claude AI was used and implemented in project2
+    // On every timer interrupt, update EEVDF parameters for the running process
+    update_eevdf_tick(p);
     yield();
+  }
 
   prepare_return();
 
@@ -172,9 +176,9 @@ clockintr()
   }
 
   // ask for the next timer interrupt. this also clears
-  // the interrupt request. 1000000 is about a tenth
-  // of a second.
-  w_stimecmp(r_time() + 1000000);
+  // the interrupt request.
+  // Claude AI was used and implemented in project2: changed from 1000000 (~0.1s) to 100000 (~0.001s)
+  w_stimecmp(r_time() + 100000);
 }
 
 // check if it's an external interrupt or software interrupt,

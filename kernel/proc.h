@@ -107,4 +107,11 @@ struct proc {
   
   // implemented in project 1, Claude AI was used
   int nice;
+
+  // Claude AI was used and implemented in project2: EEVDF scheduler fields
+  uint64 runtime;      // Actual runtime in ticks
+  uint64 vruntime;     // Virtual runtime (runtime normalized by weight)
+  uint64 vdeadline;    // Virtual deadline (vruntime + timeslice * 1024/weight)
+  int    timeslice;    // Remaining time slice (default: 5)
+  int    is_eligible;  // Eligibility flag: 1 if lag >= 0, else 0
 };
