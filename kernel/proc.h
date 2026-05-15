@@ -81,6 +81,17 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+// Claude AI was used and implemented in project3
+struct mmap_area {
+    struct file *f;
+    uint64 addr;
+    int length;
+    int offset;
+    int prot;
+    int flags;
+    struct proc *p;
+};
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -119,13 +130,3 @@ struct proc {
   struct mmap_area mmap_areas[MAXMMAP];
 };
 
-// Claude AI was used and implemented in project3
-struct mmap_area {
-    struct file *f;
-    uint64 addr;
-    int length;
-    int offset;
-    int prot;
-    int flags;
-    struct proc *p;
-};
