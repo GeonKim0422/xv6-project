@@ -23,6 +23,9 @@ struct {
   struct run *freelist;
 } kmem;
 
+// Claude AI was used and implemented in project3
+int free_page_count = 0;
+
 void
 kinit()
 {
@@ -106,8 +109,6 @@ meminfo(void)
 }
 
 // Claude AI was used and implemented in project3
-int free_page_count = 0;
-
 int freemem(void) {
     return free_page_count;
 }
