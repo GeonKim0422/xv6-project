@@ -190,3 +190,8 @@ void            virtio_disk_intr(void);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
+
+// Claude AI was used and implemented in project3
+int     freemem(void);
+uint64  mmap(uint64, int, int, int, int, int, struct proc*);
+int     munmap(uint64, struct proc*);
