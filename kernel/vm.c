@@ -484,3 +484,84 @@ ismapped(pagetable_t pagetable, uint64 va)
   }
   return 0;
 }
+
+// Claude AI was used and implemented in project3
+uint64 mmap(uint64 addr, int length, int prot, int flags, int fd, int offset, struct proc *p) {
+    if (addr % PGSIZE != 0 || length % PGSIZE != 0)
+        return 0;
+
+    struct mmap_area *ma = 0;
+    for (int i = 0; i < MAXMMAP; i++) {
+        if (p->mmap_areas[i].addr == 0) {
+            ma = &p->mmap_areas[i];
+            break;
+        }
+    }
+    if (ma == 0)
+        return 0;
+
+    struct file *f = 0;
+    if (!(flags & MAP_ANONYMOUS)) {
+        if (fd < 0 || fd >= NOFILE || (f = p->ofile[fd]) == 0)
+            return 0;
+        if ((prot & PROT_WRITE) && !f->writable)
+            return 0;
+        filedup(f);
+    }
+
+    ma->f = f;
+    ma->addr = MMAPBASE + addr;
+    ma->length = length;
+    ma->offset = offset;
+    ma->prot = prot;
+    ma->flags = flags;
+    ma->p = p;
+
+    if (flags & MAP_POPULATE) {
+        for (int i = 0; i < length; i += PGSIZE) {
+            char *mem = kalloc();
+            if (mem == 0) return 0;
+            memset(mem, 0, PGSIZE);
+            if (f) {
+                ilock(f->ip);
+                readi(f->ip, 0, (uint64)mem, offset + i, PGSIZE);
+                iunlock(f->ip);
+            }
+            int perm = PTE_U;
+            if (prot & PROT_READ)  perm |= PTE_R;
+            if (prot & PROT_WRITE) perm |= PTE_W;
+            if (mappages(p->pagetable, ma->addr + i, PGSIZE, (uint64)mem, perm) != 0) {
+                kfree(mem);
+                return 0;
+            }
+        }
+    }
+
+    return ma->addr;
+}
+
+int munmap(uint64 addr, struct proc *p) {
+    struct mmap_area *ma = 0;
+    for (int i = 0; i < MAXMMAP; i++) {
+        if (p->mmap_areas[i].addr == addr) {
+            ma = &p->mmap_areas[i];
+            break;
+        }
+    }
+    if (ma == 0)
+        return -1;
+
+    for (int i = 0; i < ma->length; i += PGSIZE) {
+        pte_t *pte = walk(p->pagetable, ma->addr + i, 0);
+        if (pte && (*pte & PTE_V)) {
+            kfree((void *)PTE2PA(*pte));
+            *pte = 0;
+        }
+    }
+
+    if (ma->f)
+        fileclose(ma->f);
+
+    memset(ma, 0, sizeof(struct mmap_area));
+    return 1;
+}
