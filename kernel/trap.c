@@ -68,9 +68,46 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else if((r_scause() == 15 || r_scause() == 13) &&
-            vmfault(p->pagetable, r_stval(), (r_scause() == 13)? 1 : 0) != 0) {
-    // page fault on lazily-allocated page
+  } else if(r_scause() == 15 || r_scause() == 13) {
+    uint64 fault_addr = r_stval();
+    if(vmfault(p->pagetable, fault_addr, (r_scause() == 13)? 1 : 0) != 0) {
+        // lazily-allocated page
+    } else {
+        // check mmap region
+        struct mmap_area *ma = 0;
+        for(int i = 0; i < MAXMMAP; i++) {
+            if(p->mmap_areas[i].addr != 0 &&
+               fault_addr >= p->mmap_areas[i].addr &&
+               fault_addr < p->mmap_areas[i].addr + p->mmap_areas[i].length) {
+                ma = &p->mmap_areas[i];
+                break;
+            }
+        }
+        if(ma == 0) {
+            setkilled(p);
+        } else {
+            uint64 page_addr = PGROUNDDOWN(fault_addr);
+            char *mem = kalloc();
+            if(mem == 0) {
+                setkilled(p);
+            } else {
+                memset(mem, 0, PGSIZE);
+                if(ma->f) {
+                    int off = page_addr - ma->addr + ma->offset;
+                    ilock(ma->f->ip);
+                    readi(ma->f->ip, 0, (uint64)mem, off, PGSIZE);
+                    iunlock(ma->f->ip);
+                }
+                int perm = PTE_U;
+                if(ma->prot & PROT_READ)  perm |= PTE_R;
+                if(ma->prot & PROT_WRITE) perm |= PTE_W;
+                if(mappages(p->pagetable, page_addr, PGSIZE, (uint64)mem, perm) != 0) {
+                    kfree(mem);
+                    setkilled(p);
+                }
+            }
+        }
+    }
   } else {
     printf("usertrap(): unexpected scause 0x%lx pid=%d\n", r_scause(), p->pid);
     printf("            sepc=0x%lx stval=0x%lx\n", r_sepc(), r_stval());
