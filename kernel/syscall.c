@@ -107,6 +107,12 @@ extern uint64 sys_setnice(void);
 extern uint64 sys_ps(void);
 extern uint64 sys_meminfo(void);
 extern uint64 sys_waitpid(void);
+
+//implemented in project3
+extern uint64 sys_mmap(void);
+extern uint64 sys_munmap(void);
+extern uint64 sys_freemem(void);
+
 // An array mapping syscall numbers from syscall.h
 // to the function that handles the system call.
 static uint64 (*syscalls[])(void) = {
