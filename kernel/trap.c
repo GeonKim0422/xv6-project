@@ -68,6 +68,7 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  // Claude AI was used and implemented in project3
   } else if(r_scause() == 15 || r_scause() == 13) {
     uint64 fault_addr = r_stval();
     if(vmfault(p->pagetable, fault_addr, (r_scause() == 13)? 1 : 0) != 0) {
