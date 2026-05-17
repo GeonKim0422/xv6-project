@@ -150,7 +150,7 @@ UPROGS=\
 	$U/_tni\
 	$U/_tnw\
 	$U/_tvr\
-
+	$U/_pa3_test
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
 

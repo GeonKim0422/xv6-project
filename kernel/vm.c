@@ -7,6 +7,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "fs.h"
+#include "sleeplock.h"   
+#include "file.h"   
 
 /*
  * the kernel's page table.
