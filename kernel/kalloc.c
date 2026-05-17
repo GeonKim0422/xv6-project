@@ -23,6 +23,9 @@ struct {
   struct run *freelist;
 } kmem;
 
+// Claude AI was used and implemented in project3
+int free_page_count = 0;
+
 void
 kinit()
 {
@@ -60,11 +63,15 @@ kfree(void *pa)
   r->next = kmem.freelist;
   kmem.freelist = r;
   release(&kmem.lock);
+  free_page_count++;
+  
 }
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
+
+// Claude AI was used and implemented in project3
 void *
 kalloc(void)
 {
@@ -76,8 +83,10 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+  if(r) {
+    free_page_count--;
+    memset((char*)r, 5, PGSIZE);
+  }
   return (void*)r;
 }
 
@@ -97,4 +106,9 @@ meminfo(void)
   release(&kmem.lock);
 
   return count * PGSIZE;
+}
+
+// Claude AI was used and implemented in project3
+int freemem(void) {
+    return free_page_count;
 }

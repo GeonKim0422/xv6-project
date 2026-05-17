@@ -54,3 +54,8 @@ int setnice(int, int);
 void ps(int);
 uint64 meminfo(void);
 int waitpid(int);
+
+// Claude AI was used and implemented in project3
+uint64 mmap(uint64, int, int, int, int, int);
+int munmap(uint64);
+int freemem(void);

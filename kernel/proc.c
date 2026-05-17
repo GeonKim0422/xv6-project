@@ -334,6 +334,25 @@ int kfork(void)
   np->vdeadline   = np->vruntime + (uint64)5 * 1024 / w;
   np->is_eligible = 1;
 
+  // Claude AI was used and implemented in project3
+  for (int i = 0; i < MAXMMAP; i++) {
+    struct mmap_area *pma = &p->mmap_areas[i];
+    if (pma->addr == 0) continue;
+    np->mmap_areas[i] = *pma;
+    np->mmap_areas[i].p = np;
+    if (pma->f)
+        np->mmap_areas[i].f = filedup(pma->f);
+    for (int j = 0; j < pma->length; j += PGSIZE) {
+        pte_t *pte = walk(p->pagetable, pma->addr + j, 0);
+        if (pte && (*pte & PTE_V)) {
+            char *mem = kalloc();
+            if (mem == 0) return -1;
+            memmove(mem, (void *)PTE2PA(*pte), PGSIZE);
+            mappages(np->pagetable, pma->addr + j, PGSIZE, (uint64)mem, PTE_FLAGS(*pte));
+        }
+    }
+  }
+
   release(&np->lock);
 
   acquire(&wait_lock);
@@ -948,3 +967,4 @@ waitpid(int pid)
   }
   return -1;
 }
+

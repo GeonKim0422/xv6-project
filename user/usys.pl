@@ -48,4 +48,7 @@ entry("setnice");
 entry("ps");
 entry("meminfo");
 entry("waitpid");
-
+# Claude AI was used and implemented in project3
+entry("mmap");
+entry("munmap");
+entry("freemem");
