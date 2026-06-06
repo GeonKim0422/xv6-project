@@ -37,7 +37,15 @@
 // for use by the kernel and user pages
 // from physical address 0x80000000 to PHYSTOP.
 #define KERNBASE 0x80000000L
-#define PHYSTOP (KERNBASE + 128*1024*1024)
+// Claude AI was used and implemented in project 4
+// 4.5 MiB: recommended by slide deck (SWE3004).
+// The 1000-page (4MiB) test just barely fits, forcing swap activity.
+#define PHYSTOP  (KERNBASE + 4*1024*1024 + 512*1024)
+
+// Swap area at the tail of fs.img (FSSIZE expanded to 30000 in param.h).
+// One page = 4 disk blocks, so SWAPMAX/4 = 7000 swap slots.
+#define SWAPBASE 2000
+#define SWAPMAX  28000
 
 // map the trampoline page to the highest address,
 // in both user and kernel space.

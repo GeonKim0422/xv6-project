@@ -141,22 +141,29 @@ found:
   p->state = USED;
   p->nice = 20;
 
-  // Allocate a trapframe page.
-  if ((p->trapframe = (struct trapframe *)kalloc()) == 0)
-  {
-    freeproc(p);
-    release(&p->lock);
-    return 0;
+  // Claude AI was used and implemented in project 4
+  // Release p->lock before kalloc() so that swap_out() inside kalloc()
+  // can call bread()/sleep() without holding a spinlock.
+  release(&p->lock);
+
+  // Allocate trapframe first, assign to p->trapframe so that
+  // proc_pagetable(p) can map it correctly.
+  struct trapframe *tf = (struct trapframe *)kalloc();
+  if (tf == 0)
+    goto alloc_fail;
+  p->trapframe = tf;  // set before proc_pagetable uses p->trapframe
+
+  // Allocate user page table (maps trampoline + trapframe).
+  pagetable_t pt = proc_pagetable(p);
+  if (pt == 0) {
+    kfree(tf);
+    p->trapframe = 0;
+    goto alloc_fail;
   }
 
-  // An empty user page table.
-  p->pagetable = proc_pagetable(p);
-  if (p->pagetable == 0)
-  {
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
+  // Re-acquire lock to finalize the proc fields.
+  acquire(&p->lock);
+  p->pagetable = pt;
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -173,6 +180,12 @@ found:
   p->is_eligible = 1;
 
   return p;
+
+alloc_fail:
+  acquire(&p->lock);
+  freeproc(p);
+  release(&p->lock);
+  return 0;
 }
 
 // free a proc structure and the data hanging from it,
@@ -298,9 +311,16 @@ int kfork(void)
     return -1;
   }
 
+  // Claude AI was used and implemented in project 4
+  // Release np->lock before uvmcopy so that swap_out() inside kalloc()
+  // can call bread()/sleep() without holding a spinlock (sched requires
+  // exactly p->lock held, i.e. noff == 1).
+  release(&np->lock);
+
   // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0)
   {
+    acquire(&np->lock);
     freeproc(np);
     release(&np->lock);
     return -1;
@@ -352,8 +372,6 @@ int kfork(void)
         }
     }
   }
-
-  release(&np->lock);
 
   acquire(&wait_lock);
   np->parent = p;

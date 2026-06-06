@@ -71,9 +71,17 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   // Claude AI was used and implemented in project3
-  } else if(r_scause() == 15 || r_scause() == 13) {
+  } else if(r_scause() == 15 || r_scause() == 13 || r_scause() == 12) {
     uint64 fault_addr = r_stval();
-    if(vmfault(p->pagetable, fault_addr, (r_scause() == 13)? 1 : 0) != 0) {
+
+    // Claude AI was used and implemented in project 4
+    // check if this is a swap fault (PTE_V==0, PTE_S==1);
+    // if so, restore the page from disk and let the instruction retry.
+    pte_t *pte = walk(p->pagetable, fault_addr, 0);
+    if(pte != 0 && (*pte & PTE_V) == 0 && (*pte & PTE_S) != 0){
+      if(swap_in(p->pagetable, fault_addr) != 0)
+        setkilled(p);
+    } else if(vmfault(p->pagetable, fault_addr, (r_scause() == 13)? 1 : 0) != 0) {
         // lazily-allocated page
     } else {
         // check mmap region

@@ -9,7 +9,7 @@
 #define MAXOPBLOCKS  10  // max # of blocks any FS op writes
 #define LOGBLOCKS    (MAXOPBLOCKS*3)  // max data blocks in on-disk log
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
-#define FSSIZE       2000  // size of file system in blocks
+#define FSSIZE       30000  // size of file system in blocks; Claude AI was used and implemented in project 4 (expanded for swap area)
 #define MAXPATH      128   // maximum file path name
 #define USERSTACK    1     // user stack pages
 // constants for mmap
