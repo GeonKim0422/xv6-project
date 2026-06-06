@@ -360,6 +360,12 @@ typedef uint64 *pagetable_t; // 512 PTEs
 #define PTE_W (1L << 2)
 #define PTE_X (1L << 3)
 #define PTE_U (1L << 4) // user can access
+// Claude AI was used and implemented in project 4
+#define PTE_A (1L << 6) // accessed (set by MMU on access)
+#define PTE_S (1L << 8) // swapped out (software-reserved RSW bit)
+// Encode/decode a swap-slot index in the PPN field of a non-valid PTE.
+#define SLOT2PTE(slot)  PA2PTE((uint64)(slot) << 12)
+#define PTE2SLOT(pte)   ((uint)(PTE2PA(pte) >> 12))
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)

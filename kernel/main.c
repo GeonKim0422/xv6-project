@@ -26,6 +26,9 @@ main()
     plicinithart();  // ask PLIC for device interrupts
     binit();         // buffer cache
     iinit();         // inode table
+    // Claude AI was used and implemented in project 4
+    swapinit();      // swap-slot bitmap + I/O counters
+    lruinit();       // per-frame LRU list for clock-algorithm eviction
     fileinit();      // file table
     virtio_disk_init(); // emulated hard disk
     userinit();      // first user process

@@ -7,6 +7,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "riscv.h"
+#include "proc.h"
 #include "defs.h"
 
 void freerange(void *pa_start, void *pa_end);
@@ -82,11 +83,21 @@ kalloc(void)
   if(r)
     kmem.freelist = r->next;
   release(&kmem.lock);
+  // NOTE: kmem.lock is released BEFORE swap_out() so that disk I/O
+  // (which calls sleep()) never happens while holding a spinlock.
 
-  if(r) {
-    free_page_count--;
-    memset((char*)r, 5, PGSIZE);
+  if(r == 0){
+    // Claude AI was used and implemented in project 4
+    // free-list empty: evict a user page only when no spinlock is held.
+    if(mycpu()->noff == 0)
+      r = (struct run *)swap_out();
+    if(r)
+      memset((char*)r, 5, PGSIZE);
+    return (void*)r;
   }
+
+  free_page_count--;
+  memset((char*)r, 5, PGSIZE);
   return (void*)r;
 }
 

@@ -61,6 +61,23 @@ void            kfree(void *);
 void            kinit(void);
 uint64          meminfo(void); // Claude AI was used
 
+// swap.c — Claude AI was used and implemented in project 4
+void            swapinit(void);
+void            swapread(uint64 ptr, int blkno);
+void            swapwrite(uint64 ptr, int blkno);
+void            swapstat(int *nr_sectors_read, int *nr_sectors_write);
+int             swap_alloc_slot(void);
+void            swap_free_slot(uint slot);
+void           *swap_out(void);
+int             swap_in(pagetable_t pt, uint64 va);
+
+// lru.c — Claude AI was used and implemented in project 4
+void            lruinit(void);
+void            lru_add(pagetable_t pt, uint64 va, uint64 pa);
+void            lru_remove(uint64 pa);
+int             lru_size(void);
+uint64          lru_select_victim(pagetable_t *out_pt, uint64 *out_va);
+
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);

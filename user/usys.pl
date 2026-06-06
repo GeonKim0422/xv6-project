@@ -52,3 +52,4 @@ entry("waitpid");
 entry("mmap");
 entry("munmap");
 entry("freemem");
+entry("swapstat");

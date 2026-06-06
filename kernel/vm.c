@@ -167,6 +167,10 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if(*pte & PTE_V)
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
+    // Claude AI was used and implemented in project 4
+    // track user pages in the LRU list; kernel pages are never swappable.
+    if(perm & PTE_U)
+      lru_add(pagetable, a, pa);
     if(a == last)
       break;
     a += PGSIZE;
@@ -202,11 +206,21 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
     if((pte = walk(pagetable, a, 0)) == 0) // leaf page table entry allocated?
-      continue;   
-    if((*pte & PTE_V) == 0)  // has physical page been allocated?
       continue;
+    // Claude AI was used and implemented in project 4
+    // handle swapped-out entries: free the slot, no physical frame to kfree.
+    if((*pte & PTE_V) == 0){
+      if(*pte & PTE_S){
+        swap_free_slot(PTE2SLOT(*pte));
+        *pte = 0;
+      }
+      continue;
+    }
     if(do_free){
       uint64 pa = PTE2PA(*pte);
+      // Claude AI was used and implemented in project 4
+      // remove from LRU before freeing the physical frame.
+      lru_remove(pa);
       kfree((void*)pa);
     }
     *pte = 0;
@@ -306,8 +320,19 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       continue;   // page table entry hasn't been allocated
-    if((*pte & PTE_V) == 0)
-      continue;   // physical page hasn't been allocated
+    // Claude AI was used and implemented in project 4
+    // if the parent's page is swapped out, bring it back before copying.
+    if((*pte & PTE_V) == 0){
+      if(*pte & PTE_S){
+        if(swap_in(old, i) < 0)
+          goto err;
+        pte = walk(old, i, 0);
+        if(pte == 0 || (*pte & PTE_V) == 0)
+          goto err;
+      } else {
+        continue;
+      }
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)

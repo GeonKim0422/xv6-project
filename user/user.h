@@ -59,3 +59,5 @@ int waitpid(int);
 uint64 mmap(uint64, int, int, int, int, int);
 int munmap(uint64);
 int freemem(void);
+// Claude AI was used and implemented in project 4
+int swapstat(int *nr_sectors_read, int *nr_sectors_write);
